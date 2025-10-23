@@ -2,6 +2,7 @@ node_modules
 client/out
 server/out
 *.vsix
+*.tsbuildinfo
 .vscode-test
 client/node_modules
 server/node_modules

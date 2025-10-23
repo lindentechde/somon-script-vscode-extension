@@ -34,6 +34,14 @@ jobs:
       - name: Install server dependencies
         run: cd server && npm ci
       
+      - name: Clean build artifacts
+        run: |
+          rm -rf client/out
+          rm -rf server/out
+          rm -rf *.tsbuildinfo
+          rm -rf client/*.tsbuildinfo
+          rm -rf server/*.tsbuildinfo
+      
       - name: Compile TypeScript
         run: npm run compile
       
@@ -96,6 +104,14 @@ jobs:
       
       - name: Install server dependencies
         run: cd server && npm ci
+      
+      - name: Clean build artifacts
+        run: |
+          rm -rf client/out
+          rm -rf server/out
+          rm -rf *.tsbuildinfo
+          rm -rf client/*.tsbuildinfo
+          rm -rf server/*.tsbuildinfo
       
       - name: Compile TypeScript
         run: npm run compile

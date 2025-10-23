@@ -27,9 +27,6 @@
     "тоҷикӣ"
   ],
   "main": "./client/out/extension",
-  "activationEvents": [
-    "onLanguage:somonscript"
-  ],
   "contributes": {
     "languages": [
       {
@@ -90,6 +87,7 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
+    "clean": "rm -rf client/out server/out *.tsbuildinfo client/*.tsbuildinfo server/*.tsbuildinfo",
     "lint": "eslint ./client/src ./server/src --ext .ts",
     "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
     "test": "sh ./scripts/e2e.sh"
