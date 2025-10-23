@@ -3,7 +3,7 @@
   "displayName": "SomonScript",
   "description": "Language support for SomonScript - Tajik Cyrillic programming language",
   "version": "0.1.0",
-  "publisher": "somonscript",
+  "publisher": "LindenTechITConsulting",
   "license": "MIT",
   "icon": "icon.png",
   "repository": {
@@ -27,9 +27,6 @@
     "тоҷикӣ"
   ],
   "main": "./client/out/extension",
-  "activationEvents": [
-    "onLanguage:somonscript"
-  ],
   "contributes": {
     "languages": [
       {
@@ -90,15 +87,24 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -b",
     "watch": "tsc -b -w",
+    "clean": "rm -rf client/out server/out *.tsbuildinfo client/*.tsbuildinfo server/*.tsbuildinfo",
     "lint": "eslint ./client/src ./server/src --ext .ts",
-    "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
-    "test": "sh ./scripts/e2e.sh"
+    "pretest": "npm run compile",
+    "test": "sh ./scripts/e2e.sh",
+    "test:watch": "tsc -b -w",
+    "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
   },
   "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^18.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
+    "@vscode/test-electron": "^2.5.2",
+    "chai": "^6.2.0",
     "eslint": "^8.47.0",
+    "glob": "^11.0.3",
+    "mocha": "^11.7.4",
     "typescript": "^5.1.6"
   }
 }
