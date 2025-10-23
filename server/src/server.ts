@@ -20,10 +20,15 @@ import * as path from 'path';
 
 // Import SomonScript compiler
 // The extension is installed in a parent directory, so we need to go up to find the dist folder
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let compile: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let KEYWORDS: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let Parser: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let TypeChecker: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let Lexer: any;
 
 try {
@@ -51,7 +56,6 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
-let hasDiagnosticRelatedInformationCapability = false;
 
 connection.onInitialize((params: InitializeParams) => {
   const capabilities = params.capabilities;
@@ -61,11 +65,6 @@ connection.onInitialize((params: InitializeParams) => {
   );
   hasWorkspaceFolderCapability = !!(
     capabilities.workspace && !!capabilities.workspace.workspaceFolders
-  );
-  hasDiagnosticRelatedInformationCapability = !!(
-    capabilities.textDocument &&
-    capabilities.textDocument.publishDiagnostics &&
-    capabilities.textDocument.publishDiagnostics.relatedInformation
   );
 
   const result: InitializeResult = {
@@ -107,7 +106,7 @@ interface SomonScriptSettings {
 const defaultSettings: SomonScriptSettings = { maxNumberOfProblems: 100 };
 let globalSettings: SomonScriptSettings = defaultSettings;
 
-const documentSettings: Map<string, Thenable<SomonScriptSettings>> = new Map();
+const documentSettings: Map<string, Promise<SomonScriptSettings>> = new Map();
 
 connection.onDidChangeConfiguration(change => {
   if (hasConfigurationCapability) {
@@ -121,7 +120,7 @@ connection.onDidChangeConfiguration(change => {
   documents.all().forEach(validateTextDocument);
 });
 
-function getDocumentSettings(resource: string): Thenable<SomonScriptSettings> {
+function getDocumentSettings(resource: string): Promise<SomonScriptSettings> {
   if (!hasConfigurationCapability) {
     return Promise.resolve(globalSettings);
   }
@@ -198,7 +197,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
           diagnostics.push(diagnostic);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If compilation throws an error, show it as a diagnostic
       const diagnostic: Diagnostic = {
         severity: DiagnosticSeverity.Error,
@@ -206,7 +205,7 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
           start: { line: 0, character: 0 },
           end: { line: 0, character: Number.MAX_VALUE }
         },
-        message: error.message || 'Unknown compilation error',
+        message: (error instanceof Error ? error.message : String(error)) || 'Unknown compilation error',
         source: 'SomonScript'
       };
       diagnostics.push(diagnostic);
@@ -411,9 +410,11 @@ function getMemberCompletions(text: string, objectName: string): CompletionItem[
     
     if (varType && varType.kind === 'class' && varType.properties) {
       // Get all class members including inherited ones
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allProperties = new Map<string, any>();
       
       // Collect properties from the current class
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       varType.properties.forEach((propType: any, propName: string) => {
         allProperties.set(propName, propType);
       });
@@ -422,6 +423,7 @@ function getMemberCompletions(text: string, objectName: string): CompletionItem[
       let currentBase = varType.baseType;
       while (currentBase) {
         if (currentBase.properties) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           currentBase.properties.forEach((propType: any, propName: string) => {
             if (!allProperties.has(propName)) {
               allProperties.set(propName, propType);
@@ -432,6 +434,7 @@ function getMemberCompletions(text: string, objectName: string): CompletionItem[
       }
 
       // Convert to CompletionItems
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       allProperties.forEach((propType: any, propName: string) => {
         if (propType.type.kind === 'function') {
           // It's a method
