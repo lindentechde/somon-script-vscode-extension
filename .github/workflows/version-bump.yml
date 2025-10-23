@@ -1,0 +1,87 @@
+name: Version Bump on PR
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - master
+
+jobs:
+  version-bump:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version bump type
+        id: bump-type
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_LABELS="${{ join(github.event.pull_request.labels.*.name, ',') }}"
+          
+          # Check PR labels first
+          if echo "$PR_LABELS" | grep -q "major"; then
+            echo "type=major" >> $GITHUB_OUTPUT
+          elif echo "$PR_LABELS" | grep -q "minor"; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+          elif echo "$PR_LABELS" | grep -q "patch"; then
+            echo "type=patch" >> $GITHUB_OUTPUT
+          # Check PR title for conventional commits
+          elif echo "$PR_TITLE" | grep -qiE "^(feat|feature)(\(.+\))?!:"; then
+            echo "type=major" >> $GITHUB_OUTPUT
+          elif echo "$PR_TITLE" | grep -qiE "^(feat|feature)(\(.+\))?:"; then
+            echo "type=minor" >> $GITHUB_OUTPUT
+          elif echo "$PR_TITLE" | grep -qiE "^(fix|bugfix|perf|refactor|docs|style|test|chore)(\(.+\))?:"; then
+            echo "type=patch" >> $GITHUB_OUTPUT
+          else
+            # Default to patch if no indicator found
+            echo "type=patch" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Bump version
+        run: |
+          npm run version:${{ steps.bump-type.outputs.type }}
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Commit and push version bump
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
+          git push origin ${{ github.event.pull_request.base.ref }}
+
+      - name: Create Git tag
+        run: |
+          git tag "v${{ env.NEW_VERSION }}"
+          git push origin "v${{ env.NEW_VERSION }}"
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🎉 Version bumped to `${{ env.NEW_VERSION }}` and tagged as `v${{ env.NEW_VERSION }}`'
+            })

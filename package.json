@@ -42,7 +42,7 @@
         "configuration": "./language-configuration.json",
         "icon": {
           "light": "./icons/somonscript.png",
-          "dark": "./icons/somonscript.png"
+          "dark": "./icons/logo-dark.png"
         }
       }
     ],
@@ -92,7 +92,14 @@
     "pretest": "npm run compile",
     "test": "sh ./scripts/e2e.sh",
     "test:watch": "tsc -b -w",
-    "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+    "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version",
+    "version:prepatch": "npm version prepatch --no-git-tag-version",
+    "version:preminor": "npm version preminor --no-git-tag-version",
+    "version:premajor": "npm version premajor --no-git-tag-version",
+    "version:prerelease": "npm version prerelease --no-git-tag-version"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",
