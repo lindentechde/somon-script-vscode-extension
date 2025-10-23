@@ -33,15 +33,15 @@ This directory contains GitHub Actions workflows for CI/CD automation.
 
 #### Test
 - **Dependencies:** Requires build job to complete
-- **Status:** ⚠️ Placeholder (waiting for test implementation)
+- **Status:** ✅ Active (placeholder script)
 - **Steps:**
   1. Checkout code
   2. Setup Node.js 20.x
   3. Install dependencies
   4. Compile TypeScript
-  5. Run tests (currently disabled - see note below)
+  5. Run tests (placeholder script exits successfully)
 
-**Note:** The test job is currently a placeholder because the `scripts/e2e.sh` file referenced in `package.json` doesn't exist yet. Uncomment the test step in `ci.yml` once tests are implemented.
+**Note:** The `scripts/e2e.sh` script currently serves as a placeholder that exits successfully. Implement actual tests by editing this script to include real test logic using @vscode/test-electron or your preferred testing framework.
 
 ### 2. Test Suite (`test.yml`)
 
@@ -89,63 +89,58 @@ Add these badges to your main README.md:
 
 ## Implementing Tests
 
-To enable the test functionality:
+The test infrastructure is ready with a placeholder script. To add real tests:
 
-### Step 1: Create E2E Test Script
+### Step 1: Edit the E2E Test Script
 
-Create `scripts/e2e.sh`:
+The file `scripts/e2e.sh` already exists as a placeholder. Edit it to add real tests:
 
 ```bash
 #!/bin/bash
 
-# Example E2E test script
+# Example E2E test script with real tests
 set -e
 
 echo "Running E2E tests..."
 
-# Add your test commands here
-# For VS Code extensions, you might use:
-# - vscode-test for integration tests
-# - npm test with appropriate test runner
+# Install test dependencies if needed
+# npm install --save-dev @vscode/test-electron mocha
+
+# Run VS Code extension tests
+# For example:
+# node ./out/test/runTest.js
+
+# Or use vscode-test directly:
+# vscode-test --extensionDevelopmentPath=. --extensionTestsPath=./out/test
 
 echo "Tests completed successfully"
 ```
 
-Make it executable:
+### Step 2: Add Test Dependencies (Optional)
+
+Add testing libraries to `package.json`:
+
 ```bash
-chmod +x scripts/e2e.sh
+npm install --save-dev @vscode/test-electron mocha @types/mocha
 ```
 
-### Step 2: Update package.json
+### Step 3: Create Test Files
 
-Add test scripts:
+Create test files in `client/src/test/` or `server/src/test/` directories with your test logic.
 
-```json
-{
-  "scripts": {
-    "test": "node ./scripts/e2e.sh",
-    "test:unit": "jest",
-    "test:integration": "vscode-test"
-  }
-}
+### Step 4: Enable Full Test Suite (Optional)
+
+To run comprehensive tests on multiple platforms, update `test.yml` triggers:
+
+```yaml
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
 ```
 
-### Step 3: Enable Test Workflows
-
-1. Uncomment the test step in `ci.yml`:
-   ```yaml
-   - name: Run tests
-     run: npm test
-   ```
-
-2. Update `test.yml` triggers:
-   ```yaml
-   on:
-     push:
-       branches: [main, develop]
-     pull_request:
-       branches: [main, develop]
-   ```
+**Note:** The main CI pipeline (`ci.yml`) already runs tests on every push/PR with the placeholder script.
 
 ## Caching
 

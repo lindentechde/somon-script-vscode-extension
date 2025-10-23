@@ -116,8 +116,10 @@ jobs:
       - name: Compile TypeScript
         run: npm run compile
       
-      - name: Run tests
-        run: npm test
+      - name: Run tests (Linux)
+        run: xvfb-run -a npm test
+        if: runner.os == 'Linux'
       
-      - name: Test placeholder
-        run: echo "Tests will be added when scripts/e2e.sh is implemented"
+      - name: Run tests (Windows/macOS)
+        run: npm test
+        if: runner.os != 'Linux'
