@@ -2,14 +2,13 @@ name: Version Bump on PR
 
 on:
   pull_request:
-    types: [closed]
+    types: [opened, synchronize, reopened]
     branches:
       - main
       - master
 
 jobs:
   version-bump:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -19,6 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -33,7 +33,20 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Check if version bump is needed
+        id: check-version
+        run: |
+          # Check if the last commit already has [skip ci] or is a version bump
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+          if echo "$LAST_COMMIT_MSG" | grep -qiE "\[skip ci\]|\[ci skip\]|chore: bump version"; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Version already bumped in last commit, skipping"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Determine version bump type
+        if: steps.check-version.outputs.skip == 'false'
         id: bump-type
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
@@ -59,23 +72,21 @@ jobs:
           fi
 
       - name: Bump version
+        if: steps.check-version.outputs.skip == 'false'
         run: |
           npm run version:${{ steps.bump-type.outputs.type }}
           NEW_VERSION=$(node -p "require('./package.json').version")
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
       - name: Commit and push version bump
+        if: steps.check-version.outputs.skip == 'false'
         run: |
           git add package.json
           git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
-          git push origin ${{ github.event.pull_request.base.ref }}
-
-      - name: Create Git tag
-        run: |
-          git tag "v${{ env.NEW_VERSION }}"
-          git push origin "v${{ env.NEW_VERSION }}"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
       - name: Comment on PR
+        if: steps.check-version.outputs.skip == 'false'
         uses: actions/github-script@v7
         with:
           script: |
@@ -83,5 +94,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '🎉 Version bumped to `${{ env.NEW_VERSION }}` and tagged as `v${{ env.NEW_VERSION }}`'
+              body: '🎉 Version bumped to `${{ env.NEW_VERSION }}` as part of this PR'
             })
