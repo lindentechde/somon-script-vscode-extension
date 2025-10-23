@@ -2,7 +2,7 @@
   "name": "somonscript",
   "displayName": "SomonScript",
   "description": "Language support for SomonScript - Tajik Cyrillic programming language",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "publisher": "LindenTechITConsulting",
   "license": "MIT",
   "icon": "icon.png",
