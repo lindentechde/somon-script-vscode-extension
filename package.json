@@ -1,0 +1,104 @@
+{
+  "name": "somonscript",
+  "displayName": "SomonScript",
+  "description": "Language support for SomonScript - Tajik Cyrillic programming language",
+  "version": "0.1.0",
+  "publisher": "somonscript",
+  "license": "MIT",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lindentechde/Somon-Script.git"
+  },
+  "homepage": "https://github.com/lindentechde/Somon-Script#readme",
+  "bugs": {
+    "url": "https://github.com/lindentechde/Somon-Script/issues"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "somonscript",
+    "tajik",
+    "cyrillic",
+    "тоҷикӣ"
+  ],
+  "main": "./client/out/extension",
+  "activationEvents": [
+    "onLanguage:somonscript"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "somonscript",
+        "aliases": [
+          "SomonScript",
+          "somonscript",
+          "Тоҷикӣ"
+        ],
+        "extensions": [
+          ".som"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/somonscript.png",
+          "dark": "./icons/somonscript.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "somonscript",
+        "scopeName": "source.somonscript",
+        "path": "./syntaxes/somonscript.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "somonscript",
+        "path": "./snippets/somonscript.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "SomonScript",
+      "properties": {
+        "somonscript.maxNumberOfProblems": {
+          "scope": "resource",
+          "type": "number",
+          "default": 100,
+          "description": "Controls the maximum number of problems produced by the language server."
+        },
+        "somonscript.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "lint": "eslint ./client/src ./server/src --ext .ts",
+    "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+    "test": "sh ./scripts/e2e.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.47.0",
+    "typescript": "^5.1.6"
+  }
+}
