@@ -12,7 +12,12 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
   Hover,
-  MarkupKind
+  MarkupKind,
+  DocumentFormattingParams,
+  TextEdit,
+  Location,
+  ReferenceParams,
+  WorkspaceEdit
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -74,7 +79,13 @@ connection.onInitialize((params: InitializeParams) => {
         resolveProvider: true,
         triggerCharacters: ['.', 'т', 'а', 'ф', 'с', 'в', 'б', 'н']
       },
-      hoverProvider: true
+      hoverProvider: true,
+      documentFormattingProvider: true,
+      definitionProvider: true,
+      referencesProvider: true,
+      renameProvider: {
+        prepareProvider: false
+      }
     }
   };
 
@@ -159,18 +170,16 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 
         for (let i = 0; i < problems; i++) {
           const errorMsg = result.errors[i];
-
-          // Try to extract line and column info from error message
-          const lineMatch = errorMsg.match(/line (\d+)/i);
-          const line = lineMatch ? parseInt(lineMatch[1]) - 1 : 0;
+          const errorInfo = parseErrorMessage(errorMsg, text);
 
           const diagnostic: Diagnostic = {
             severity: DiagnosticSeverity.Error,
             range: {
-              start: { line: line, character: 0 },
-              end: { line: line, character: Number.MAX_VALUE }
+              start: { line: errorInfo.line, character: errorInfo.startChar },
+              end: { line: errorInfo.line, character: errorInfo.endChar }
             },
-            message: errorMsg,
+            message: errorInfo.message,
+            code: errorInfo.code,
             source: 'SomonScript'
           };
 
@@ -181,16 +190,16 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
       // Add warnings if any
       if (result.warnings && result.warnings.length > 0) {
         for (const warning of result.warnings) {
-          const lineMatch = warning.match(/line (\d+)/i);
-          const line = lineMatch ? parseInt(lineMatch[1]) - 1 : 0;
+          const warningInfo = parseErrorMessage(warning, text);
 
           const diagnostic: Diagnostic = {
             severity: DiagnosticSeverity.Warning,
             range: {
-              start: { line: line, character: 0 },
-              end: { line: line, character: Number.MAX_VALUE }
+              start: { line: warningInfo.line, character: warningInfo.startChar },
+              end: { line: warningInfo.line, character: warningInfo.endChar }
             },
-            message: warning,
+            message: warningInfo.message,
+            code: warningInfo.code,
             source: 'SomonScript'
           };
 
@@ -213,6 +222,68 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
   }
 
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+}
+
+// Helper function to parse error messages and extract location information
+interface ErrorInfo {
+  line: number;
+  startChar: number;
+  endChar: number;
+  message: string;
+  code?: string;
+}
+
+function parseErrorMessage(errorMsg: string, text: string): ErrorInfo {
+  // Try to match: "Type error [CODE] at line L, column C: message" format
+  const fullMatch = errorMsg.match(/at line (\d+),\s*column (\d+):\s*(.*)/i);
+  if (fullMatch) {
+    const line = parseInt(fullMatch[1]) - 1; // Convert to 0-indexed
+    const column = parseInt(fullMatch[2]) - 1; // Convert to 0-indexed
+    const message = fullMatch[3];
+
+    // Extract error code if present
+    const codeMatch = errorMsg.match(/\[([A-Z_0-9]+)\]/);
+    const code = codeMatch ? codeMatch[1] : undefined;
+
+    // Find the word at the error position and highlight it
+    const lines = text.split('\n');
+    if (line >= 0 && line < lines.length) {
+      const errorLine = lines[line];
+      const wordMatch = errorLine.substring(column).match(/[а-яА-ЯёЁӣӢқҚғҒҳҲҷҶa-zA-Z_][а-яА-ЯёЁӣӢқҚғҒҳҲҷҶa-zA-Z0-9_]*/);
+      const endChar = wordMatch ? column + wordMatch[0].length : column + 1;
+
+      return {
+        line,
+        startChar: Math.max(0, column),
+        endChar: Math.min(errorLine.length, endChar),
+        message,
+        code
+      };
+    }
+
+    return {
+      line,
+      startChar: Math.max(0, column),
+      endChar: Math.max(0, column) + 1,
+      message,
+      code
+    };
+  }
+
+  // Try to match: "line L" format (fallback)
+  const lineMatch = errorMsg.match(/line (\d+)/i);
+  const line = lineMatch ? parseInt(lineMatch[1]) - 1 : 0;
+
+  // Try to match "column C" format
+  const columnMatch = errorMsg.match(/column (\d+)/i);
+  const column = columnMatch ? parseInt(columnMatch[1]) - 1 : 0;
+
+  return {
+    line: Math.max(0, line),
+    startChar: Math.max(0, column),
+    endChar: Math.max(0, column) + 1,
+    message: errorMsg
+  };
 }
 
 // Keyword documentation mapping
@@ -580,6 +651,238 @@ connection.onHover(
     return null;
   }
 );
+
+// Format document
+connection.onDocumentFormatting(
+  (params: DocumentFormattingParams): TextEdit[] => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return [];
+    }
+
+    const text = document.getText();
+    const formatted = formatDocument(text, params.options);
+
+    return [
+      TextEdit.replace(
+        {
+          start: { line: 0, character: 0 },
+          end: { line: document.lineCount - 1, character: document.getText().split('\n')[document.lineCount - 1].length }
+        },
+        formatted
+      )
+    ];
+  }
+);
+
+// Helper function to format the document
+function formatDocument(text: string, options: { tabSize: number; insertSpaces: boolean }): string {
+  const lines = text.split('\n');
+  const formatted: string[] = [];
+  let indentLevel = 0;
+  const indentStr = options.insertSpaces ? ' '.repeat(options.tabSize) : '\t';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      formatted.push('');
+      continue;
+    }
+
+    // Decrease indent for closing braces
+    if (trimmed.startsWith('}') || trimmed.startsWith(']') || trimmed.startsWith(')')) {
+      indentLevel = Math.max(0, indentLevel - 1);
+    }
+
+    // Add the formatted line with proper indentation
+    const indentedLine = indentStr.repeat(indentLevel) + trimmed;
+    formatted.push(indentedLine);
+
+    // Increase indent for opening braces
+    const openBraces = (trimmed.match(/[{(\[]/g) || []).length;
+    const closeBraces = (trimmed.match(/[})\\]]/g) || []).length;
+    indentLevel += openBraces - closeBraces;
+  }
+
+  return formatted.join('\n');
+}
+
+// Provide definition information
+connection.onDefinition(
+  (params: TextDocumentPositionParams): Location | null => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return null;
+    }
+
+    const text = document.getText();
+    const offset = document.offsetAt(params.position);
+    const symbol = getSymbolAtPosition(text, offset);
+
+    if (!symbol) {
+      return null;
+    }
+
+    const definitions = findSymbolDefinitions(text, symbol);
+    if (definitions.length > 0) {
+      const def = definitions[0];
+      return Location.create(params.textDocument.uri, def.range);
+    }
+
+    return null;
+  }
+);
+
+// Provide references
+connection.onReferences(
+  (params: ReferenceParams): Location[] => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return [];
+    }
+
+    const text = document.getText();
+    const offset = document.offsetAt(params.position);
+    const symbol = getSymbolAtPosition(text, offset);
+
+    if (!symbol) {
+      return [];
+    }
+
+    const references = findSymbolReferences(text, symbol, params.textDocument.uri, params.context.includeDeclaration);
+    return references;
+  }
+);
+
+// Provide rename functionality
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+connection.onRenameRequest(
+  (params: any): WorkspaceEdit | null => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return null;
+    }
+
+    const text = document.getText();
+    const offset = document.offsetAt(params.position);
+    const symbol = getSymbolAtPosition(text, offset);
+
+    if (!symbol || !params.newName) {
+      return null;
+    }
+
+    return renameSymbol(text, symbol, params.newName, params.textDocument.uri);
+  }
+);
+
+// Helper function to extract the symbol at a given position
+function getSymbolAtPosition(text: string, offset: number): string | null {
+  const identifierPattern = /[а-яА-ЯёЁӣӢқҚғҒҳҲҷҶa-zA-Z_][а-яА-ЯёЁӣӢқҚғҒҳҲҷҶa-zA-Z0-9_]*/g;
+  let match;
+
+  while ((match = identifierPattern.exec(text)) !== null) {
+    if (match.index <= offset && offset <= match.index + match[0].length) {
+      return match[0];
+    }
+  }
+
+  return null;
+}
+
+// Helper function to find where a symbol is defined
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findSymbolDefinitions(text: string, symbol: string): any[] {
+  const definitions: any[] = [];
+  const lines = text.split('\n');
+
+  // Pattern to find definitions: var/const/let/function/class declarations
+  const defPatterns = [
+    new RegExp(`^\\s*(тағйирёбанда|собит|функсия|функция|синф|интерфейс|навъ)\\s+${symbol}\\s*[(:=]`),
+    new RegExp(`^\\s*${symbol}\\s*\\(.*\\)\\s*[:{]`),
+    new RegExp(`^\\s*${symbol}\\s*[:=]`)
+  ];
+
+  for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+    const line = lines[lineNum];
+    for (const pattern of defPatterns) {
+      if (pattern.test(line)) {
+        const charPos = line.indexOf(symbol);
+        if (charPos !== -1) {
+          definitions.push({
+            range: {
+              start: { line: lineNum, character: charPos },
+              end: { line: lineNum, character: charPos + symbol.length }
+            }
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return definitions;
+}
+
+// Helper function to find all references to a symbol
+function findSymbolReferences(text: string, symbol: string, uri: string, includeDeclaration: boolean): Location[] {
+  const references: Location[] = [];
+  const lines = text.split('\n');
+  const symbolRegex = new RegExp(`\\b${symbol}\\b`, 'g');
+
+  for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+    const line = lines[lineNum];
+    let match;
+
+    while ((match = symbolRegex.exec(line)) !== null) {
+      // Check if this is a definition or a reference
+      const isDefinition = /^\\s*(тағйирёбанда|собит|функсия|функция|синф|интерфейс|навъ)\s+/.test(line);
+
+      if (includeDeclaration || !isDefinition) {
+        references.push(
+          Location.create(uri, {
+            start: { line: lineNum, character: match.index },
+            end: { line: lineNum, character: match.index + symbol.length }
+          })
+        );
+      }
+    }
+  }
+
+  return references;
+}
+
+// Helper function to rename a symbol throughout the document
+function renameSymbol(text: string, oldName: string, newName: string, uri: string): WorkspaceEdit {
+  const edits: TextEdit[] = [];
+  const lines = text.split('\n');
+  const symbolRegex = new RegExp(`\\b${oldName}\\b`, 'g');
+
+  for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+    const line = lines[lineNum];
+    let match;
+
+    while ((match = symbolRegex.exec(line)) !== null) {
+      edits.push(
+        TextEdit.replace(
+          {
+            start: { line: lineNum, character: match.index },
+            end: { line: lineNum, character: match.index + oldName.length }
+          },
+          newName
+        )
+      );
+    }
+  }
+
+  const workspaceEdit: WorkspaceEdit = {
+    changes: {
+      [uri]: edits
+    }
+  };
+
+  return workspaceEdit;
+}
 
 // Make the text document manager listen on the connection
 documents.listen(connection);
